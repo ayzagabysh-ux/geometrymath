@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Геометрия: интерактив с геймификацией</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/pdfmake.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.2.7/vfs_fonts.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Roboto, sans-serif; margin: 0; background: #f0f4fa; color: #1e2f3e; }
+        .app-container { max-width: 1300px; margin: 0 auto; padding: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; background: white; border-radius: 40px; padding: 12px 28px; margin-bottom: 25px; box-shadow: 0 8px 20px rgba(0,0,0,0.05); }
+        h1 { margin: 0; font-size: 1.7rem; background: linear-gradient(135deg, #1e5f7a, #2c8eb3); -webkit-background-clip: text; background-clip: text; color: transparent; }
+        .score-panel { background: #ffdd88; padding: 6px 20px; border-radius: 40px; font-weight: bold; font-size: 1.3rem; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .reset-btn, .pdf-btn { border: none; padding: 6px 15px; border-radius: 40px; font-weight: bold; cursor: pointer; color: white; transition: 0.2s; }
+        .reset-btn { background: #ff6666; }
+        .reset-btn:hover { background: #ff4444; }
+        .pdf-btn { background: #e67e22; }
+        .pdf-btn:hover { background: #d35400; }
+        .level-badge { background: #2c7ab1; color: white; padding: 4px 12px; border-radius: 40px; font-size: 1rem; font-weight: normal; }
+        .figures-nav { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 25px; justify-content: center; }
+        .fig-btn { background: white; border: none; padding: 10px 20px; border-radius: 60px; font-size: 1rem; font-weight: 600; cursor: pointer; color: #2c5a7a; }
+        .fig-btn.active { background: #2c7ab1; color: white; }
+        .main-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+        @media (max-width: 850px) { .main-grid { grid-template-columns: 1fr; } }
+        .card { background: white; border-radius: 32px; padding: 24px; box-shadow: 0 12px 28px rgba(0,0,0,0.08); }
+        .theory h2, .quiz h2 { margin-top: 0; border-left: 5px solid #ffaa44; padding-left: 18px; color: #1f4e6e; }
+        .theory-text { font-size: 1rem; line-height: 1.5; background: #fafcff; padding: 12px; border-radius: 24px; max-height: 500px; overflow-y: auto; }
+        .canvas-container { background: #fefaf0; border-radius: 28px; padding: 12px; text-align: center; margin-top: 15px; }
+        canvas { background: white; border-radius: 24px; max-width: 100%; height: auto; }
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 2px solid #e0e7f0; }
+        .tab-btn { background: none; border: none; font-size: 1.1rem; font-weight: 600; padding: 8px 16px; cursor: pointer; color: #5a6e7c; }
+        .tab-btn.active { color: #2c7ab1; border-bottom: 3px solid #2c7ab1; margin-bottom: -2px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .task-text { font-size: 1.15rem; font-weight: 500; margin-bottom: 20px; background: #eef3fc; padding: 14px; border-radius: 28px; }
+        .options { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+        .option { background: white; border: 2px solid #dce5ef; border-radius: 60px; padding: 12px 18px; cursor: pointer; font-weight: 500; }
+        .feedback { background: #eef2f7; border-radius: 28px; padding: 12px 18px; margin: 15px 0; }
+        .next-btn { background: #2c7ab1; border: none; color: white; padding: 12px 24px; border-radius: 60px; font-weight: bold; cursor: pointer; width: 100%; margin-top: 10px; }
+        .progress-bar { background: #e0e7f0; border-radius: 20px; height: 12px; margin: 20px 0; overflow: hidden; }
+        .progress-fill { background: #4caf50; width: 0%; height: 100%; transition: width 0.3s; }
+        .input-group { margin: 20px 0; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+        .input-number { flex: 1; padding: 12px 16px; border: 2px solid #dce5ef; border-radius: 60px; outline: none; }
+        .check-btn { background: #4caf50; border: none; color: white; padding: 12px 24px; border-radius: 60px; cursor: pointer; }
+    </style>
+</head>
+<body>
+<div class="app-container">
+    <div class="header">
+        <h1>📐 ГеоИнтерактив: фигуры и свойства</h1>
+        <div class="score-panel">
+            🏆 Общий счёт: <span id="totalScore">0</span>
+            <span id="levelDisplay" class="level-badge">Новичок</span>
+            <button id="exportPDFBtn" class="pdf-btn">📄 Скачать PDF-отчёт</button>
+            <button id="resetProgressBtn" class="reset-btn">🔄 Сбросить</button>
+        </div>
+    </div>
+    <div class="figures-nav" id="figuresNav"></div>
+    <div class="main-grid">
+        <div class="card theory"><h2 id="figureTitle">Теория</h2><div id="theoryText" class="theory-text">Выберите фигуру.</div><div class="canvas-container"><canvas id="figureCanvas" width="400" height="300"></canvas></div></div>
+        <div class="card quiz"><h2>📝 Проверь себя</h2><div class="tabs"><button class="tab-btn active" data-tab="test">📝 Тест</button><button class="tab-btn" data-tab="tasks">🧩 Задачи</button></div><div class="progress-bar"><div class="progress-fill" id="topicProgressFill"></div></div><div id="testContent" class="tab-content active"></div><div id="tasksContent" class="tab-content"></div></div>
+    </div>
+</div>
+<script>
+// ======================= ДАННЫЕ ПО ФИГУРАМ (полные, как ранее) =======================
+const figuresData = {
+    triangle: {
+        name: "Треугольник",
+        theory: `<div style="max-height:400px;overflow-y:auto;padding-right:8px;">
+            <p><strong>Треугольник</strong> — геометрическая фигура, состоящая из трёх точек (вершин) и трёх отрезков (сторон), их соединяющих.</p>
+            <h3>📐 Признаки равенства треугольников</h3><ul><li>Первый: две стороны и угол между ними.</li><li>Второй: сторона и два прилежащих угла.</li><li>Третий: три стороны.</li></ul>
+            <h3>📏 Медиана, биссектриса, высота</h3><ul><li>Медиана – отрезок, соединяющий вершину с серединой противоположной стороны.</li><li>Биссектриса – отрезок, делящий угол пополам.</li><li>Высота – перпендикуляр, опущенный из вершины на противоположную сторону.</li></ul>
+            <h3>⚖️ Равнобедренный треугольник</h3><p>Две стороны равны. Углы при основании равны. Медиана к основанию является также высотой и биссектрисой.</p>
+            <h3>📐 Сумма углов треугольника = 180°</h3>
+            <h3>📏 Неравенство треугольника: любая сторона меньше суммы двух других.</h3>
+            <h3>📐 Прямоугольный треугольник</h3><ul><li>Теорема Пифагора: c² = a² + b²</li><li>Катет против угла 30° равен половине гипотенузы.</li><li>Сумма острых углов 90°.</li></ul>
+        </div>`,
+        draw: (ctx,w,h) => { ctx.clearRect(0,0,w,h); ctx.beginPath(); ctx.moveTo(w/2,30); ctx.lineTo(50,h-40); ctx.lineTo(w-50,h-40); ctx.closePath(); ctx.fillStyle="#e9f0f9"; ctx.fill(); ctx.strokeStyle="#2c7ab1"; ctx.stroke(); ctx.fillStyle="#1f4e6e"; ctx.fillText("A",w/2-10,25); ctx.fillText("B",40,h-35); ctx.fillText("C",w-45,h-35); },
+        questions: [
+            {text:"Сумма углов любого треугольника?",options:["90°","180°","360°"],correct:1,expl:"180°."},
+            {text:"Треугольник с углом 120° называется?",options:["Остроугольный","Прямоугольный","Тупоугольный"],correct:2,expl:"Тупоугольный."},
+            {text:"Сторона против прямого угла в прямоугольном треугольнике?",options:["Катет","Гипотенуза","Основание"],correct:1,expl:"Гипотенуза."},
+            {text:"В равнобедренном треугольнике углы при основании?",options:["Равны","Смежны","В сумме 90°"],correct:0,expl:"Равны."},
+            {text:"Теорема Пифагора:",options:["a+b=c","a²+b²=c²","a²+b²=c"],correct:1,expl:"a²+b²=c²."}
+        ],
+        tasks: [
+            {text:"В треугольнике ABC угол A = 35°, угол B = 45°. Найдите угол C.", ans:100, exp:"180 - 35 - 45 = 100."},
+            {text:"В прямоугольном треугольнике катеты 5 и 12. Найдите гипотенузу.", ans:13, exp:"√(25+144)=13."},
+            {text:"В равнобедренном треугольнике угол при вершине 50°. Найдите углы при основании.", ans:65, exp:"(180-50)/2=65."},
+            {text:"Стороны 7,9,12. Существует? (1-да,0-нет)", ans:1, exp:"7+9>12 и т.д."},
+            {text:"Гипотенуза 25, катет 7. Найдите другой катет.", ans:24, exp:"√(625-49)=24."},
+            {text:"В треугольнике ABC ∠C=90°, BC=5, AC=12. Найдите sin A.", ans:0.3846, exp:"5/13≈0.3846."},
+            {text:"Средняя линия треугольника 8 см. Найдите сторону.", ans:16, exp:"2·8=16."},
+            {text:"Углы 2:3:4. Найдите наибольший угол.", ans:80, exp:"2x+3x+4x=180 → x=20, 4x=80."},
+            {text:"Равнобедренный: боковая 17, основание 16. Найдите высоту.", ans:15, exp:"√(289-64)=15."},
+            {text:"Угол 30°, противолежащий катет 8. Гипотенуза?", ans:16, exp:"катет против 30° = половина гипотенузы."}
+        ]
+    },
+    parallelogram: {
+        name: "Параллелограмм",
+        theory: `<div><p><strong>Параллелограмм</strong> — четырёхугольник, у которого противоположные стороны попарно параллельны.</p>
+            <h3>📏 Свойства</h3><ul><li>Противоположные стороны равны.</li><li>Противоположные углы равны.</li><li>Диагонали точкой пересечения делятся пополам.</li></ul>
+            <p>Площадь S = a·h.</p></div>`,
+        draw: (ctx,w,h) => { ctx.clearRect(0,0,w,h); let cx=w/2,cy=h/2,width=w*0.5,skew=w*0.12,height=h*0.45; ctx.beginPath(); ctx.moveTo(cx-width/2+skew,cy-height/2); ctx.lineTo(cx+width/2+skew,cy-height/2); ctx.lineTo(cx+width/2-skew,cy+height/2); ctx.lineTo(cx-width/2-skew,cy+height/2); ctx.fillStyle="#e9f0f9"; ctx.fill(); ctx.strokeStyle="#2c7ab1"; ctx.stroke(); ctx.fillStyle="#1f4e6e"; ctx.fillText("A",cx-width/2+skew-8,cy-height/2-5); ctx.fillText("B",cx+width/2+skew+5,cy-height/2-5); ctx.fillText("C",cx+width/2-skew+5,cy+height/2+5); ctx.fillText("D",cx-width/2-skew-8,cy+height/2+5); },
+        questions: [
+            {text:"Свойство параллелограмма?",options:["Все стороны равны","Противоположные стороны равны","Диагонали перпендикулярны"],correct:1,expl:"Противоположные стороны равны."},
+            {text:"Признак параллелограмма?",options:["Две стороны равны и параллельны","Все углы прямые","Диагонали равны"],correct:0,expl:"Две стороны равны и параллельны."},
+            {text:"Диагонали параллелограмма точкой пересечения?",options:["Не делятся","Делятся пополам","Делятся 2:1"],correct:1,expl:"Делятся пополам."},
+            {text:"Сумма углов при одной стороне?",options:["90°","180°","360°"],correct:1,expl:"180°."},
+            {text:"Что НЕ признак?",options:["Противоположные стороны равны","Диагонали равны","Две стороны равны и параллельны"],correct:1,expl:"Равенство диагоналей — признак прямоугольника."}
+        ],
+        tasks: [
+            {text:"Стороны 10 и 15. Периметр?", ans:50, exp:"2·(10+15)=50."},
+            {text:"Угол 65°. Прилежащий?", ans:115, exp:"180-65=115."},
+            {text:"Сторона 20, высота 9. Площадь?", ans:180, exp:"20·9=180."},
+            {text:"∠A=110°. ∠C?", ans:110, exp:"Противоположные равны."},
+            {text:"P=60, одна сторона на 8 больше. Меньшая?", ans:11, exp:"x+x+8=30→x=11."},
+            {text:"AO=7, диагональ AC?", ans:14, exp:"2·7=14."},
+            {text:"Сторона 12, высота 5. Площадь?", ans:60, exp:"12·5=60."},
+            {text:"Сумма двух углов 140°. Острый угол?", ans:70, exp:"2α=140→α=70."},
+            {text:"Стороны 8 и 12, угол 30°. Площадь?", ans:48, exp:"8·12·0.5=48."},
+            {text:"Сторона 10, угол 150°, смежная 6. Площадь?", ans:30, exp:"10·6·0.5=30."}
+        ]
+    },
+    rhombus: {
+        name: "Ромб",
+        theory: `<div><p><strong>Ромб</strong> — параллелограмм, у которого все стороны равны. Диагонали перпендикулярны, делят углы пополам. Площадь = (d₁·d₂)/2.</p></div>`,
+        draw: (ctx,w,h) => { ctx.clearRect(0,0,w,h); let cx=w/2,cy=h/2,dx=w*0.32,dy=h*0.4; ctx.beginPath(); ctx.moveTo(cx,cy-dy); ctx.lineTo(cx+dx,cy); ctx.lineTo(cx,cy+dy); ctx.lineTo(cx-dx,cy); ctx.fillStyle="#e9f0f9"; ctx.fill(); ctx.strokeStyle="#2c7ab1"; ctx.stroke(); ctx.fillStyle="#1f4e6e"; ctx.fillText("A",cx,cy-dy-5); ctx.fillText("B",cx+dx+5,cy); ctx.fillText("C",cx,cy+dy+5); ctx.fillText("D",cx-dx-8,cy); },
+        questions: [
+            {text:"Верно для ромба?",options:["Все стороны равны","Все углы прямые","Диагонали равны"],correct:0,expl:"Все стороны равны."},
+            {text:"Диагонали ромба?",options:["Перпендикулярны","Параллельны","Равны"],correct:0,expl:"Перпендикулярны."},
+            {text:"Диагонали делят углы?",options:["Пополам","На три части","Не влияют"],correct:0,expl:"Пополам."},
+            {text:"Площадь через диагонали?",options:["d₁·d₂","(d₁·d₂)/2","(d₁+d₂)/2"],correct:1,expl:"(d₁·d₂)/2."},
+            {text:"Угол ромба 60°, прилежащий?",options:["60°","120°","90°"],correct:1,expl:"180-60=120."}
+        ],
+        tasks: [
+            {text:"Сторона 8, угол 60°. Площадь (≈)?", ans:55.4, exp:"64·0.866≈55.4."},
+            {text:"Диагонали 10 и 24. Сторона?", ans:13, exp:"√(5²+12²)=13."},
+            {text:"Площадь 240, диагональ 20. Вторая?", ans:24, exp:"(20·d)/2=240→d=24."},
+            {text:"Сторона 15, диагональ 18. Вторая?", ans:24, exp:"√(225-81)=12, диагональ 24."},
+            {text:"P=52, диагональ 10. Площадь?", ans:120, exp:"сторона 13, половина диагонали 5, √(169-25)=12, S=10·24/2=120."},
+            {text:"Высота 6, сторона 10. Площадь?", ans:60, exp:"10·6=60."},
+            {text:"Острый угол 30°, сторона 8. Площадь?", ans:32, exp:"64·0.5=32."},
+            {text:"Диагонали 5:12, площадь 120. Меньшая?", ans:10, exp:"5x·12x/2=30x²=120→x=2, меньшая=10."},
+            {text:"Сторона 17, разность диагоналей 14. Меньшая?", ans:16, exp:"a-b=7, a²+b²=289→a=15,b=8, диагонали 30 и 16."},
+            {text:"Площадь 80, сторона 10. Высота?", ans:8, exp:"80/10=8."}
+        ]
+    },
+    rectangle: {
+        name: "Прямоугольник",
+        theory: `<div><p><strong>Прямоугольник</strong> — параллелограмм с прямыми углами. Диагонали равны. Площадь = a·b.</p></div>`,
+        draw: (ctx,w,h) => { ctx.clearRect(0,0,w,h); let x=w*0.25,y=h*0.25,width=w*0.5,height=h*0.5; ctx.fillStyle="#e9f0f9"; ctx.fillRect(x,y,width,height); ctx.strokeStyle="#2c7ab1"; ctx.strokeRect(x,y,width,height); ctx.fillStyle="#1f4e6e"; ctx.fillText("A",x-5,y-5); ctx.fillText("B",x+width+5,y-5); ctx.fillText("C",x+width+5,y+height+5); ctx.fillText("D",x-5,y+height+5); ctx.fillText("a",x+width/2,y-8); ctx.fillText("b",x+width+8,y+height/2); },
+        questions: [
+            {text:"Свойство прямоугольника?",options:["Все стороны равны","Все углы прямые","Диагонали перпендикулярны"],correct:1,expl:"Все углы 90°."},
+            {text:"Диагонали прямоугольника?",options:["Равны","Перпендикулярны","Делят углы"],correct:0,expl:"Равны."},
+            {text:"Признак прямоугольника?",options:["Диагонали равны","Диагонали перпендикулярны","Стороны равны"],correct:0,expl:"Если диагонали равны."},
+            {text:"Формула площади?",options:["a·b","2(a+b)","a²"],correct:0,expl:"a·b."},
+            {text:"Периметр со сторонами 4 и 9?",options:["26","36","13"],correct:0,expl:"2·(4+9)=26."}
+        ],
+        tasks: [
+            {text:"Стороны 9 и 12. Периметр?", ans:42, exp:"2·(9+12)=42."},
+            {text:"Стороны 7 и 8. Площадь?", ans:56, exp:"7·8=56."},
+            {text:"Диагональ 15, сторона 9. Другая?", ans:12, exp:"√(225-81)=12."},
+            {text:"P=34, сторона 5. Площадь?", ans:60, exp:"вторая 12, S=60."},
+            {text:"Стороны 6 и 8. Диагональ?", ans:10, exp:"√(36+64)=10."},
+            {text:"S=48, сторона 6. Периметр?", ans:28, exp:"вторая 8, P=28."},
+            {text:"Диагональ 17, сторона 15. Площадь?", ans:120, exp:"вторая 8, S=120."},
+            {text:"P=46, диагональ 17. Меньшая сторона?", ans:8, exp:"a+b=23, a²+b²=289 → ab=120 → a=8,b=15."},
+            {text:"Одна сторона на 4 больше, S=45. P?", ans:28, exp:"x(x+4)=45 → x=5, стороны 5 и 9, P=28."},
+            {text:"Диагонали пересекаются, угол 60°, меньшая сторона 6. Диагональ?", ans:12, exp:"равносторонний треугольник → диагональ=12."}
+        ]
+    },
+    square: {
+        name: "Квадрат",
+        theory: `<div><p><strong>Квадрат</strong> — прямоугольник с равными сторонами. Диагонали равны, перпендикулярны, делят углы. S = a².</p></div>`,
+        draw: (ctx,w,h) => { ctx.clearRect(0,0,w,h); let size=Math.min(w,h)*0.5, x=(w-size)/2, y=(h-size)/2; ctx.fillStyle="#e9f0f9"; ctx.fillRect(x,y,size,size); ctx.strokeStyle="#2c7ab1"; ctx.strokeRect(x,y,size,size); ctx.fillStyle="#1f4e6e"; ctx.fillText("A",x-5,y-5); ctx.fillText("B",x+size+5,y-5); ctx.fillText("C",x+size+5,y+size+5); ctx.fillText("D",x-5,y+size+5); ctx.fillText("a",x+size/2,y-8); },
+        questions: [
+            {text:"Определение квадрата?",options:["Прямоугольник с равными сторонами","Ромб с прямыми углами","Оба верны"],correct:2,expl:"Оба."},
+            {text:"Свойство диагоналей?",options:["Равны","Перпендикулярны","Оба"],correct:2,expl:"И равны, и перпендикулярны."},
+            {text:"Площадь со стороной 9?",options:["18","36","81"],correct:2,expl:"81."},
+            {text:"Диагональ 8√2, сторона?",options:["8","16","4"],correct:0,expl:"8."},
+            {text:"Периметр 36, площадь?",options:["81","1296","144"],correct:0,expl:"сторона 9, S=81."}
+        ],
+        tasks: [
+            {text:"Сторона 7. Периметр?", ans:28, exp:"4·7=28."},
+            {text:"Сторона 11. Площадь?", ans:121, exp:"121."},
+            {text:"Периметр 32. Сторона?", ans:8, exp:"32/4=8."},
+            {text:"Площадь 64. Сторона?", ans:8, exp:"√64=8."},
+            {text:"Диагональ 12√2. Площадь?", ans:144, exp:"сторона 12, S=144."},
+            {text:"Квадрат 10, прямоугольник 25. Вторая сторона?", ans:4, exp:"100/25=4."},
+            {text:"Расстояние от центра до стороны 6. Площадь?", ans:144, exp:"сторона 12, S=144."},
+            {text:"Диагональ 14. Периметр (≈)?", ans:39.6, exp:"сторона≈9.9, P≈39.6."},
+            {text:"Площадь 72. Диагональ (≈)?", ans:12, exp:"a≈8.485, d≈12."},
+            {text:"Квадрат разделён на 4, сторона исходного 12. Периметр маленького?", ans:24, exp:"сторона маленького 6, P=24."}
+        ]
+    },
+    trapezoid: {
+        name: "Трапеция",
+        theory: `<div><p><strong>Трапеция</strong> — две стороны параллельны (основания). Площадь = (a+b)/2·h.</p></div>`,
+        draw: (ctx,w,h) => { ctx.clearRect(0,0,w,h); let topW=w*0.4,bottomW=w*0.7,yTop=h*0.25,yBottom=h*0.65; let xTop=(w-topW)/2, xBottom=(w-bottomW)/2; ctx.beginPath(); ctx.moveTo(xTop,yTop); ctx.lineTo(xTop+topW,yTop); ctx.lineTo(xBottom+bottomW,yBottom); ctx.lineTo(xBottom,yBottom); ctx.fillStyle="#e9f0f9"; ctx.fill(); ctx.strokeStyle="#2c7ab1"; ctx.stroke(); ctx.fillStyle="#1f4e6e"; ctx.fillText("A",xTop-5,yTop-5); ctx.fillText("B",xTop+topW+5,yTop-5); ctx.fillText("C",xBottom+bottomW+5,yBottom+5); ctx.fillText("D",xBottom-5,yBottom+5); },
+        questions: [
+            {text:"Верно для любой трапеции?",options:["Две стороны параллельны","Боковые стороны равны","Все углы прямые"],correct:0,expl:"Две стороны параллельны."},
+            {text:"Как называются параллельные стороны?",options:["Основания","Боковые","Диагонали"],correct:0,expl:"Основания."},
+            {text:"Равнобедренная трапеция имеет?",options:["Равные боковые стороны","Прямой угол","Равные диагонали"],correct:0,expl:"Боковые стороны равны."},
+            {text:"Формула площади?",options:["(a+b)h/2","ah","(a+b)h"],correct:0,expl:"(a+b)h/2."},
+            {text:"Средняя линия трапеции равна?",options:["(a+b)/2","a+b","(a-b)/2"],correct:0,expl:"(a+b)/2."}
+        ],
+        tasks: [
+            {text:"Основания 6 и 10, высота 5. Площадь?", ans:40, exp:"(6+10)/2·5=40."},
+            {text:"Основание 7, другое на 3 больше, высота 6. Площадь?", ans:51, exp:"(7+10)/2·6=51."},
+            {text:"S=96, высота 8. Средняя линия?", ans:12, exp:"96/8=12."},
+            {text:"Равнобедренная: основания 8 и 14, боковая 5. Высота?", ans:4, exp:"проекция=3, h=√(25-9)=4."},
+            {text:"Прямоугольная: основания 5 и 9, высота 4. Площадь?", ans:28, exp:"(5+9)/2·4=28."},
+            {text:"Основания 12 и 20, высота 8. Площадь?", ans:128, exp:"(12+20)/2·8=128."},
+            {text:"Средняя линия 11, основание 7. Другое?", ans:15, exp:"(7+b)/2=11→b=15."},
+            {text:"Основания 6 и 14, высота 5. Площадь?", ans:50, exp:"(6+14)/2·5=50."},
+            {text:"Равнобедренная: боковая 10, высота 8, меньшее 6. Большее?", ans:18, exp:"проекция=6, большее=6+12=18."},
+            {text:"S=135, высота 9. Средняя линия?", ans:15, exp:"135/9=15."}
+        ]
+    }
+};
+
+// ======================= ФУНКЦИЯ ОПРЕДЕЛЕНИЯ УРОВНЯ =======================
+function getLevel(score) {
+    if (score >= 450) return "🏆 Легенда геометрии";
+    if (score >= 360) return "🔴 Профи";
+    if (score >= 270) return "🟣 Мастер доказательств";
+    if (score >= 180) return "🟠 Решатель задач";
+    if (score >= 90) return "🔵 Знаток теории";
+    return "🟢 Новичок";
+}
+
+// ======================= ГЛОБАЛЬНОЕ СОСТОЯНИЕ И ФУНКЦИИ =======================
+let currentFigure = "triangle", activeTab = "test", totalScore = 0;
+let figureProgress = {}, tasksProgress = {}, taskPenalty = {};
+let answerLock = false;
+
+function initProgress(){
+    totalScore = 0;
+    for(let f in figuresData){
+        figureProgress[f] = 0;
+        tasksProgress[f] = 0;
+        if(!taskPenalty[f]) taskPenalty[f] = {};
+        for(let i=0; i<figuresData[f].tasks.length; i++) taskPenalty[f][i] = false;
+    }
+    updateScoreAndLevel();
+}
+function updateScoreAndLevel() {
+    document.getElementById("totalScore").innerText = totalScore;
+    document.getElementById("levelDisplay").innerText = getLevel(totalScore);
+}
+function adjustScore(delta){
+    totalScore += delta;
+    if(totalScore < 0) totalScore = 0;
+    updateScoreAndLevel();
+}
+function resetAll(){ if(confirm("Сбросить весь прогресс?")){ initProgress(); renderActiveTab(); alert("Прогресс сброшен."); } }
+
+// ======================= ЭКСПОРТ В PDF (pdfmake) =======================
+function exportToPDF() {
+    let studentName = prompt("Введите ваше имя для отчёта:", "Ученик");
+    if (!studentName) studentName = "Аноним";
+    
+    let tableBody = [];
+    for (let [key, fig] of Object.entries(figuresData)) {
+        const testTotal = fig.questions.length;
+        const testSolved = figureProgress[key] || 0;
+        const tasksTotal = fig.tasks.length;
+        const tasksSolved = tasksProgress[key] || 0;
+        tableBody.push([
+            fig.name,
+            `${testSolved} / ${testTotal} (${Math.round((testSolved/testTotal)*100)}%)`,
+            `${tasksSolved} / ${tasksTotal} (${Math.round((tasksSolved/tasksTotal)*100)}%)`
+        ]);
+    }
+    
+    const docDefinition = {
+        pageOrientation: 'portrait',
+        content: [
+            { text: 'Отчёт по геометрии', style: 'header', alignment: 'center' },
+            { text: `Ученик: ${studentName}`, style: 'subheader', margin: [0, 10, 0, 5] },
+            { text: `Дата: ${new Date().toLocaleString()}`, style: 'subheader', margin: [0, 0, 0, 5] },
+            { text: `Общий счёт: ${totalScore} баллов`, style: 'subheader', margin: [0, 0, 0, 5] },
+            { text: `Уровень: ${getLevel(totalScore)}`, style: 'subheader', margin: [0, 0, 0, 15] },
+            {
+                table: {
+                    headerRows: 1,
+                    widths: ['*', 'auto', 'auto'],
+                    body: [
+                        [{ text: 'Тема', style: 'tableHeader' }, { text: 'Тест', style: 'tableHeader' }, { text: 'Задачи', style: 'tableHeader' }],
+                        ...tableBody
+                    ]
+                },
+                layout: 'lightHorizontalLines'
+            }
+        ],
+        styles: {
+            header: { bold: true, fontSize: 16, alignment: 'center' },
+            subheader: { fontSize: 12, alignment: 'left' },
+            tableHeader: { bold: true, fontSize: 12, fillColor: '#2c7ab1', color: 'white', alignment: 'center' }
+        }
+    };
+    
+    pdfMake.createPdf(docDefinition).download(`geometry_report_${studentName}.pdf`);
+}
+
+// ======================= ОТРИСОВКА ИНТЕРФЕЙСА (без изменений, кроме вызова updateScoreAndLevel) =======================
+function renderNav(){
+    let nav = document.getElementById("figuresNav");
+    nav.innerHTML = "";
+    for(let [key,data] of Object.entries(figuresData)){
+        let btn = document.createElement("button");
+        btn.className = `fig-btn ${key===currentFigure?"active":""}`;
+        btn.innerText = data.name;
+        btn.onclick = ()=>{ if(key===currentFigure) return; currentFigure=key; renderNav(); loadFigure(); renderActiveTab(); };
+        nav.appendChild(btn);
+    }
+}
+function loadFigure(){
+    let f = figuresData[currentFigure];
+    document.getElementById("figureTitle").innerText = f.name;
+    document.getElementById("theoryText").innerHTML = f.theory;
+    let canvas = document.getElementById("figureCanvas"), ctx = canvas.getContext("2d");
+    let resize = new ResizeObserver(()=>{ canvas.width = canvas.clientWidth; canvas.height = canvas.clientHeight; f.draw(ctx, canvas.width, canvas.height); });
+    if(canvas._ro) canvas._ro.disconnect();
+    canvas._ro = resize;
+    resize.observe(canvas);
+    canvas.width = canvas.clientWidth;
+    canvas.height = canvas.clientHeight;
+    f.draw(ctx, canvas.width, canvas.height);
+}
+function renderActiveTab(){ if(activeTab==="test") renderTest(); else renderTasks(); updateProgressBar(); }
+function updateProgressBar(){
+    let f = figuresData[currentFigure];
+    let total = activeTab==="test"? f.questions.length : f.tasks.length;
+    let solved = activeTab==="test"? (figureProgress[currentFigure]||0) : (tasksProgress[currentFigure]||0);
+    let percent = total ? (solved/total)*100 : 0;
+    document.getElementById("topicProgressFill").style.width = percent+"%";
+}
+
+function renderTest(){
+    let f = figuresData[currentFigure];
+    let qs = f.questions, done = figureProgress[currentFigure]||0;
+    if(done >= qs.length){
+        document.getElementById("testContent").innerHTML = `<div style="text-align:center;padding:20px;"><p>🎉 Тест пройден!</p><button id="resetTestBtn" class="next-btn">Пройти заново</button></div>`;
+        let btn = document.getElementById("resetTestBtn");
+        if(btn) btn.onclick = ()=>{ totalScore -= done*5; if(totalScore<0) totalScore=0; figureProgress[currentFigure]=0; updateScoreAndLevel(); renderTest(); updateProgressBar(); };
+        return;
+    }
+    let idx = done, task = qs[idx];
+    let opts = ""; task.options.forEach((o,i)=>{ opts += `<button class="option" data-opt="${i}">${o}</button>`; });
+    document.getElementById("testContent").innerHTML = `<div class="task-text">📌 ${task.text}</div><div class="options">${opts}</div><div class="feedback" id="feedbackArea"></div><button class="next-btn" id="nextTestBtn" style="display:none;">➡️ Далее</button>`;
+    answerLock = false;
+    document.querySelectorAll("#testContent .option").forEach(btn=>{
+        btn.onclick = ()=>{
+            if(answerLock) return;
+            let sel = parseInt(btn.dataset.opt);
+            let correct = (sel === task.correct);
+            let fb = document.getElementById("feedbackArea");
+            if(correct){
+                adjustScore(5);
+                figureProgress[currentFigure] = idx+1;
+                fb.innerHTML = `✅ +5 баллов. ${task.expl}`;
+                fb.style.background="#d4edda";
+            } else {
+                adjustScore(-2);
+                fb.innerHTML = `❌ -2 балла. Правильно: ${task.options[task.correct]}. ${task.expl}`;
+                fb.style.background="#f8d7da";
+            }
+            answerLock = true;
+            let nxt = document.getElementById("nextTestBtn");
+            nxt.style.display = "block";
+            nxt.onclick = ()=>{ answerLock=false; renderTest(); updateProgressBar(); };
+        };
+    });
+}
+
+function renderTasks(){
+    let f = figuresData[currentFigure];
+    let tasks = f.tasks, solved = tasksProgress[currentFigure]||0;
+    if(solved >= tasks.length){
+        document.getElementById("tasksContent").innerHTML = `<div style="text-align:center;padding:20px;"><p>🎉 Все задачи решены!</p><button id="resetTasksBtn" class="next-btn">Решить заново</button></div>`;
+        let btn = document.getElementById("resetTasksBtn");
+        if(btn) btn.onclick = ()=>{
+            totalScore -= solved*5; if(totalScore<0) totalScore=0;
+            tasksProgress[currentFigure]=0;
+            for(let i=0;i<tasks.length;i++) taskPenalty[currentFigure][i]=false;
+            updateScoreAndLevel(); renderTasks(); updateProgressBar();
+        };
+        return;
+    }
+    let idx = solved, task = tasks[idx];
+    let html = `<div class="task-text">📌 Задача ${idx+1}: ${task.text}</div>
+                <div class="input-group"><input type="number" id="taskAnswer" class="input-number" placeholder="Числовой ответ" step="any"><button id="checkTaskBtn" class="check-btn">Проверить</button></div>
+                <div class="feedback" id="taskFeedback"></div>
+                <button id="nextTaskBtn" class="next-btn" style="display:none;">➡️ Следующая задача</button>`;
+    document.getElementById("tasksContent").innerHTML = html;
+    let check = document.getElementById("checkTaskBtn"), input = document.getElementById("taskAnswer"), next = document.getElementById("nextTaskBtn");
+    let localLock = false, nextAdded = false;
+    check.onclick = ()=>{
+        if(localLock){ showTaskFeedback("Вы уже проверили. Нажмите 'Следующая задача'.","warning"); return; }
+        let val = parseFloat(input.value);
+        if(isNaN(val)){ showTaskFeedback("Введите число.","warning"); return; }
+        let correct = Math.abs(val - task.ans) < 0.001;
+        if(correct){
+            if(tasksProgress[currentFigure] === idx){
+                adjustScore(5);
+                tasksProgress[currentFigure] = idx+1;
+                showTaskFeedback(`✅ +5 баллов. ${task.exp}`,"success");
+            } else { showTaskFeedback(`✅ Верно! (уже было)`,"success"); }
+            localLock = true;
+            if(!nextAdded){ next.style.display="block"; next.onclick=()=>{ renderTasks(); updateProgressBar(); }; nextAdded=true; }
+        } else {
+            if(!taskPenalty[currentFigure][idx]){
+                adjustScore(-2);
+                taskPenalty[currentFigure][idx] = true;
+                showTaskFeedback(`❌ -2 балла. Правильный ответ: ${task.ans}. ${task.exp}`,"error");
+            } else { showTaskFeedback(`❌ Неверно. Ответ: ${task.ans}. (штраф уже был)`,"error"); }
+            if(!nextAdded){ next.style.display="block"; next.onclick=()=>{ renderTasks(); updateProgressBar(); }; nextAdded=true; }
+        }
+    };
+    function showTaskFeedback(msg,type){
+        let fb = document.getElementById("taskFeedback");
+        fb.innerHTML = msg;
+        fb.style.background = type==="success"?"#d4edda":(type==="error"?"#f8d7da":"#fff3cd");
+    }
+}
+
+function initTabs(){
+    document.querySelectorAll(".tab-btn").forEach(btn=>{
+        btn.onclick = ()=>{
+            let tab = btn.dataset.tab;
+            if(tab===activeTab) return;
+            activeTab = tab;
+            document.querySelectorAll(".tab-btn").forEach(b=>b.classList.remove("active"));
+            btn.classList.add("active");
+            document.getElementById("testContent").classList.toggle("active", tab==="test");
+            document.getElementById("tasksContent").classList.toggle("active", tab==="tasks");
+            answerLock = false;
+            renderActiveTab();
+        };
+    });
+}
+
+initProgress();
+renderNav();
+loadFigure();
+initTabs();
+renderActiveTab();
+document.getElementById("resetProgressBtn").onclick = resetAll;
+document.getElementById("exportPDFBtn").onclick = exportToPDF;
+</script>
+</body>
+</html>
